@@ -72,10 +72,12 @@ def freq_analysis(text):
     # Each value in the vector should be in the range [0, 1]
     freq_vector = [0] * 26
     # TODO
-    text.upper()
+
+    filtered_text = unidecode.unidecode(text).upper()
+    filtered_text.upper()
     ascii_ref = ord('A')
     total = 0
-    for letter in text:
+    for letter in filtered_text:
         if letter.isalpha():
             freq_vector[ord(letter) - ascii_ref] += 1
             total += 1
@@ -83,7 +85,9 @@ def freq_analysis(text):
     result = [i/total for i in freq_vector]
     return result
 
-
+def chi_squared(observed, expected):
+    chi2 = sum(((o - e)**2 / e for o, e in zip(observed, expected) if e > 0))
+    return chi2
 def caesar_break(text, ref_freq):
     """
     Parameters
@@ -96,7 +100,20 @@ def caesar_break(text, ref_freq):
     a number corresponding to the caesar key
     """
     # TODO
-    return ''
+    x_temp = float('inf')
+    supposed_shift = 0
+    for shift in range(26):
+        decrypted_text = caesar_decrypt(text, shift)
+        stage_freq = freq_analysis(decrypted_text)
+        observed = stage_freq[8]  # index i
+        expected = ref_freq[8]  # index i
+        x_squared = (((observed - expected) ** 2) / expected)
+        print("x_squared for shift {}: {}".format(shift, x_squared))  # print x_squared
+        if (x_squared < x_temp):
+            x_temp = x_squared
+            supposed_shift = shift
+    print("supposed shift {}".format(supposed_shift))
+    return supposed_shift
 
 
 def vigenere_encrypt(text, key):
@@ -218,6 +235,27 @@ def main():
     print(freq_analysis(ciphered))
     print(ciphered)
     print(caesar_decrypt(ciphered,24))
+
+
+    with open('exemple.txt', 'r', encoding='utf-8') as file:
+        example_data = file.read()
+
+    ref_freq = freq_analysis(example_data)
+
+    with open('vigenere.txt', 'r') as file:
+        ciphered_text = file.read()
+    shift = caesar_break(ciphered_text,ref_freq)
+    print(caesar_decrypt(ciphered_text, shift))
+
+    test_ciphered = caesar_encrypt(example_data,15)
+    print("Test encrypted : ")
+    print(test_ciphered)
+    with open('example_french_text.txt','r') as file:
+        example_french_data = file.read()
+
+    ref_freq = freq_analysis(example_french_data)
+    shift = caesar_break(test_ciphered, ref_freq)
+    print(caesar_decrypt(test_ciphered,shift))
 if __name__ == "__main__":
     main()
 
