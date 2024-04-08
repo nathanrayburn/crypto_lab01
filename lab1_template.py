@@ -5,6 +5,9 @@ import unidecode
 # IL EST PRIMORDIAL DE NE PAS CHANGER LA SIGNATURE DES FONCTIONS
 # SINON LES CORRECTIONS RISQUENT DE NE PAS FONCTIONNER CORRECTEMENT
 
+def normalizeText(text):
+    return unidecode.unidecode(text).upper()
+
 def caesar_encrypt(text, key):
     """
     Parameters
@@ -17,8 +20,9 @@ def caesar_encrypt(text, key):
     the ciphertext of <text> encrypted with Caesar under key <key>
     """
     # TODO
-
-    filtered_text = unidecode.unidecode(text).upper()
+    if not text:
+        return ""
+    filtered_text = normalizeText(text)
     ciphered_text = ""
 
     ascii_ref = ord('A')
@@ -43,9 +47,10 @@ def caesar_decrypt(text, key):
     the plaintext of <text> decrypted with Caesar under key <key>
     """
     #
-
+    if not text:
+        return ""
     plain_text = ""
-    ciphered_text = text.upper()
+    ciphered_text = normalizeText(text)
     ascii_ref = ord('A')
     for letter in ciphered_text:
         if letter.isalpha():
@@ -72,9 +77,9 @@ def freq_analysis(text):
     # Each value in the vector should be in the range [0, 1]
     freq_vector = [0] * 26
     # TODO
-
-    filtered_text = unidecode.unidecode(text).upper()
-    filtered_text.upper()
+    if not text:
+        freq_vector
+    filtered_text = normalizeText(text)
     ascii_ref = ord('A')
     total = 0
     for letter in filtered_text:
@@ -84,10 +89,49 @@ def freq_analysis(text):
 
     result = [i/total for i in freq_vector]
     return result
+def calculate_chi_squared(observed_freq, expected_freq):
+    """
+    Parameters
+    ----------
+    observed_freq: the observed frequencies
+    expected_freq: the expected frequencies
 
-def chi_squared(observed, expected):
-    chi2 = sum(((o - e)**2 / e for o, e in zip(observed, expected) if e > 0))
-    return chi2
+    Returns
+    -------
+    the chi-squared statistic
+    """
+    ALPHA_SIZE = 26
+    current_distance = 0
+    for i in range(ALPHA_SIZE):
+        Oi = observed_freq[i]
+        Ei = expected_freq[i]
+        current_distance += ((Oi - Ei) ** 2) / Ei
+    return current_distance
+def find_best_shift(text, ref_freq):
+    """
+    Parameters
+    ----------
+    text: the text to analyze
+    ref_freq: the output of the freq_analysis function on a reference text
+
+    Returns
+    -------
+    the shift that gives the smallest chi-squared statistic
+    """
+    ALPHA_SIZE = 26
+    minimum_distance = float('inf')
+    supposed_shift = 0
+
+    for shift in range(ALPHA_SIZE):
+        decrypted_text = caesar_decrypt(text, shift)
+        freq_dist = freq_analysis(decrypted_text)
+        current_distance = calculate_chi_squared(freq_dist, ref_freq)
+
+        if current_distance < minimum_distance:
+            minimum_distance = current_distance
+            supposed_shift = shift
+
+    return supposed_shift
 def caesar_break(text, ref_freq):
     """
     Parameters
@@ -100,20 +144,24 @@ def caesar_break(text, ref_freq):
     a number corresponding to the caesar key
     """
     # TODO
-    x_temp = float('inf')
-    supposed_shift = 0
-    for shift in range(26):
-        decrypted_text = caesar_decrypt(text, shift)
-        stage_freq = freq_analysis(decrypted_text)
-        observed = stage_freq[8]  # index i
-        expected = ref_freq[8]  # index i
-        x_squared = (((observed - expected) ** 2) / expected)
-        print("x_squared for shift {}: {}".format(shift, x_squared))  # print x_squared
-        if (x_squared < x_temp):
-            x_temp = x_squared
-            supposed_shift = shift
-    print("supposed shift {}".format(supposed_shift))
-    return supposed_shift
+    if not text or not ref_freq:
+        return -1
+
+    if not all(value != 0.0 for value in ref_freq):
+        print("Error ---- There are 0.0 values in ref_freq, cannot divide by 0")
+        return 0
+
+    text = normalizeText(text)
+
+    if not text or not ref_freq:
+        return -1
+
+    if not all(value != 0.0 for value in ref_freq):
+        print("Error ---- There are 0.0 values in ref_freq, cannot divide by 0")
+        return 0
+
+    text = normalizeText(text)
+    return find_best_shift(text, ref_freq)
 
 
 def vigenere_encrypt(text, key):
@@ -128,7 +176,20 @@ def vigenere_encrypt(text, key):
     the ciphertext of <text> encrypted with Vigenere under key <key>
     """
     # TODO
-    return ""
+
+    text = normalizeText(text)
+    key = normalizeText(key)
+    ciphered_text = ""
+    ascii_ref = ord('A')
+    key_length = len(key)
+    for i, letter in enumerate(text):
+        if letter.isalpha():
+            ascii_letter = ord(letter)
+            ascii_key = ord(key[i % key_length])
+            ciphered_text += chr((ascii_letter - ascii_ref + ascii_key - ascii_ref) % 26 + ascii_ref)
+        else:
+            ciphered_text += letter
+    return ciphered_text
 
 
 def vigenere_decrypt(text, key):
@@ -143,7 +204,19 @@ def vigenere_decrypt(text, key):
     the plaintext of <text> decrypted with Vigenere under key <key>
     """
     # TODO
-    return ""
+    text = normalizeText(text)
+    key = normalizeText(key)
+    deciphered_text = ""
+    ascii_ref = ord('A')
+    key_length = len(key)
+    for i, letter in enumerate(text):
+        if letter.isalpha():
+            ascii_letter = ord(letter)
+            ascii_key = ord(key[i % key_length])
+            deciphered_text += chr((ascii_letter - ascii_ref - ascii_key + ascii_ref) % 26 + ascii_ref)
+        else:
+            deciphered_text += letter
+    return deciphered_text
 
 
 def coincidence_index(text):
@@ -157,8 +230,47 @@ def coincidence_index(text):
     the index of coincidence of the text
     """
     # TODO
-    return 0
+    text = normalizeText(text)
+    N = len(text)
 
+    if N < 2:
+        return 0
+    letter_counts = [text.count(chr(i)) for i in range(ord('A'), ord('Z') + 1)]
+    return  (len(letter_counts) * sum(ni * (ni - 1) for ni in letter_counts)) / (N * (N - 1))
+def find_key_length(text, max_key_length, ref_ic):
+    """
+    Estime la longueur de la clé en examinant l'indice de coïncidence pour les sous-textes créés
+    en prenant les lettres à des intervalles équivalant à la longueur de la clé potentielle.
+
+    Parameters
+    ----------
+    text: le texte chiffré à analyser
+    max_key_length: la longueur maximale de la clé à tester
+    french_ic: l'indice de coïncidence d'un texte français standard pour comparaison
+
+    Returns
+    -------
+    La longueur de clé estimée.
+    """
+    text = normalizeText(text)
+    estimated_key_length = 0
+    closest_ic_diff = float('inf')
+
+    for key_length in range(1, max_key_length + 1):
+        total_ic = 0
+        for i in range(key_length):
+            subtext = text[i::key_length]
+            ic = coincidence_index(subtext)
+            total_ic += ic
+
+        average_ic = total_ic / key_length
+
+        ic_diff = abs(average_ic - ref_ic)
+        if ic_diff < closest_ic_diff:
+            closest_ic_diff = ic_diff
+            estimated_key_length = key_length
+
+    return estimated_key_length
 
 def vigenere_break(text, ref_freq, ref_ci):
     """
@@ -173,8 +285,10 @@ def vigenere_break(text, ref_freq, ref_ci):
     the keyword corresponding to the encryption key used to obtain the ciphertext
     """
     # TODO
-    return ''
+    text = normalizeText(text)
 
+
+    return ""
 
 def vigenere_caesar_encrypt(text, vigenere_key, caesar_key):
     """
@@ -228,34 +342,38 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
     return (vigenere_key, caesar_key)
 
 
+
 def main():
     print("Welcome to the Vigenere breaking tool")
-    # TODO something 
-    ciphered = caesar_encrypt("Salut je bench plus que toi",24)
-    print(freq_analysis(ciphered))
-    print(ciphered)
-    print(caesar_decrypt(ciphered,24))
 
-
-    with open('exemple.txt', 'r', encoding='utf-8') as file:
-        example_data = file.read()
-
-    ref_freq = freq_analysis(example_data)
-
-    with open('vigenere.txt', 'r') as file:
-        ciphered_text = file.read()
-    shift = caesar_break(ciphered_text,ref_freq)
-    print(caesar_decrypt(ciphered_text, shift))
-
-    test_ciphered = caesar_encrypt(example_data,15)
-    print("Test encrypted : ")
-    print(test_ciphered)
-    with open('example_french_text.txt','r') as file:
+    # Read the example French text and calculate the reference frequencies
+    with open('text_fr.txt', 'r', encoding='utf-8') as file:
         example_french_data = file.read()
-
     ref_freq = freq_analysis(example_french_data)
-    shift = caesar_break(test_ciphered, ref_freq)
-    print(caesar_decrypt(test_ciphered,shift))
+    ref_ci = coincidence_index(example_french_data)
+    print(ref_freq)
+    print(ref_ci)
+    # Create a ciphered text using the caesar_encrypt function
+    text = "The quick brown fox jumps over the lazy dog"
+    key = 3
+    ciphered_text = caesar_encrypt(text, key)
+    print(f"Ciphered text: {ciphered_text}")
+
+    # Use caesar_break to find the key
+    found_key = caesar_break(ciphered_text, ref_freq)
+    print(f"Found key: {found_key}")
+
+    # Decrypt the ciphered text using the found key
+    decrypted_text = caesar_decrypt(ciphered_text, found_key)
+    print(f"Decrypted text: {decrypted_text}")
+    # Read the ciphered text
+    with open('vigenere.txt',  'r', encoding='utf-8') as file:
+        ciphered_text = file.read()
+
+    key_length = find_key_length(ciphered_text, 20, ref_ci)
+
+    print("Longueur de clef trouvé : " + str(key_length))
+
 if __name__ == "__main__":
     main()
 
