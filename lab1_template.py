@@ -1,6 +1,3 @@
-import concurrent
-from concurrent.futures import ProcessPoolExecutor
-
 import unidecode
 import re
 from statistics import mean
@@ -176,6 +173,7 @@ def vigenere_encrypt(text, key):
 
     text = normalizeText(text)
     key = normalizeText(key)
+
     ciphered_text = ""
     ascii_ref = ord('A')
     key_length = len(key)
@@ -201,8 +199,10 @@ def vigenere_decrypt(text, key):
     the plaintext of <text> decrypted with Vigenere under key <key>
     """
     # TODO
+
     text = normalizeText(text)
     key = normalizeText(key)
+
     deciphered_text = ""
     ascii_ref = ord('A')
     key_length = len(key)
