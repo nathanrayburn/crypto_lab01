@@ -336,20 +336,13 @@ def vigenere_caesar_decrypt(text, vigenere_key, caesar_key):
     plain_text = ""
     for i, char in enumerate(text):
         if char.isalpha():
-            vig_key_index = i % len(vigenere_key)  # Adjust the index for the shift
+            vig_key_index = i % len(vigenere_key)
             vig_char = ord(vigenere_key[vig_key_index]) - ascii_ref
             char_shift = (ord(char) - ascii_ref - vig_char - shift + ALPHA_SIZE) % ALPHA_SIZE
             plain_text += chr(char_shift + ascii_ref)
             if (i + 1) % len(vigenere_key) == 0:
                 shift = (shift + caesar_key) % ALPHA_SIZE
     return plain_text
-
-def mean_ic(text, key_length):
-    ics = []
-    for i in range(key_length):
-        block = text[i::key_length]
-        ics.append(coincidence_index(block))
-    return mean(ics)
 def vigenere_caesar_break(text, ref_freq, ref_ci):
     """
     Parameters
@@ -368,14 +361,15 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
 
     max_key_size = 20
     ALPHA_SIZE = 26
-    min_ic_text = "CaesarDecrypted"
+    min_ic_text = ""
     min_ic_value = float("inf")
     min_ic_caesar_key = 0
 
     for i in range(1, max_key_size + 1):
         for j in range(ALPHA_SIZE):
             final_text = ''.join(
-                [caesar_decrypt(text[chunk_start_index:chunk_start_index + i], ((j * (chunk_start_index // i)) % ALPHA_SIZE)) for chunk_start_index in range(0, len(text), i)])
+                [caesar_decrypt(text[chunk_start_index:chunk_start_index + i], ((j * (chunk_start_index // i)) % ALPHA_SIZE))
+                 for chunk_start_index in range(0, len(text), i)])
 
             ics = []
             for index in range(i):
