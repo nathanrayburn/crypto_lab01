@@ -1,12 +1,13 @@
 import unidecode
-
+import re
 
 # IMPORTANT
 # IL EST PRIMORDIAL DE NE PAS CHANGER LA SIGNATURE DES FONCTIONS
 # SINON LES CORRECTIONS RISQUENT DE NE PAS FONCTIONNER CORRECTEMENT
 
 def normalizeText(text):
-    return unidecode.unidecode(text).upper()
+    regex = re.compile("[^a-zA-Z]")
+    return regex.sub('',unidecode.unidecode(text).upper())
 
 def caesar_encrypt(text, key):
     """
@@ -81,7 +82,7 @@ def freq_analysis(text):
         freq_vector
     filtered_text = normalizeText(text)
     ascii_ref = ord('A')
-    total = 0
+    total = 0 ciphered_text += chr((ord(text[i]) + ord(vig_key[i % len(vig_key)]) + shift) % ALPHA_SIZE + ascii_ref)
     for letter in filtered_text:
         if letter.isalpha():
             freq_vector[ord(letter) - ascii_ref] += 1
@@ -144,9 +145,6 @@ def caesar_break(text, ref_freq):
     a number corresponding to the caesar key
     """
     # TODO
-    if not text or not ref_freq:
-        return -1
-
     if not all(value != 0.0 for value in ref_freq):
         print("Error ---- There are 0.0 values in ref_freq, cannot divide by 0")
         return 0
@@ -156,11 +154,6 @@ def caesar_break(text, ref_freq):
     if not text or not ref_freq:
         return -1
 
-    if not all(value != 0.0 for value in ref_freq):
-        print("Error ---- There are 0.0 values in ref_freq, cannot divide by 0")
-        return 0
-
-    text = normalizeText(text)
     return find_best_shift(text, ref_freq)
 
 
@@ -231,11 +224,13 @@ def coincidence_index(text):
     """
     # TODO
     text = normalizeText(text)
-    N = len(text)
 
-    if N < 2:
+    if len(text) < 2:
         return 0
     letter_counts = [text.count(chr(i)) for i in range(ord('A'), ord('Z') + 1)]
+
+    N = sum(letter_counts)
+
     return  (len(letter_counts) * sum(ni * (ni - 1) for ni in letter_counts)) / (N * (N - 1))
 def find_key_length(text, max_key_length, ref_ic):
     """
@@ -257,15 +252,12 @@ def find_key_length(text, max_key_length, ref_ic):
     closest_ic_diff = float('inf')
 
     for key_length in range(1, max_key_length + 1):
-        total_ic = 0
-        for i in range(key_length):
-            subtext = text[i::key_length]
-            ic = coincidence_index(subtext)
-            total_ic += ic
 
-        average_ic = total_ic / key_length
+        subtext = text[::key_length]
+        ic = coincidence_index(subtext)
 
-        ic_diff = abs(average_ic - ref_ic)
+        ic_diff = abs(ic - ref_ic)
+
         if ic_diff < closest_ic_diff:
             closest_ic_diff = ic_diff
             estimated_key_length = key_length
@@ -286,9 +278,14 @@ def vigenere_break(text, ref_freq, ref_ci):
     """
     # TODO
     text = normalizeText(text)
-
-
-    return ""
+    key_length = find_key_length(text, 20, ref_ci)
+    key = ""
+    print(key_length)
+    ascii_ref = ord('A')
+    for i in range(key_length):
+        shift = caesar_break(text[i::key_length], ref_freq)
+        key += chr(shift % 26 + ascii_ref)
+    return key
 
 def vigenere_caesar_encrypt(text, vigenere_key, caesar_key):
     """
@@ -303,7 +300,19 @@ def vigenere_caesar_encrypt(text, vigenere_key, caesar_key):
     the ciphertext of <text> encrypted with improved Vigenere under keys <key_vigenere> and <key_caesar>
     """
     # TODO
-    return ""
+    text = normalizeText(text)
+    vig_key = normalizeText(vigenere_key)
+    shift = 0
+    ciphered_text = ""
+    ascii_ref = ord('A')
+    ALPHA_SIZE = 26
+
+    for i in range(len(text)):
+        ciphered_text += chr((ord(text[i]) + ord(vig_key[i % len(vig_key)]) + shift) % ALPHA_SIZE + ascii_ref)
+        if not i % len(vigenere_key):
+            shift += caesar_key
+
+    return ciphered_text
 
 
 def vigenere_caesar_decrypt(text, vigenere_key, caesar_key):
@@ -319,7 +328,19 @@ def vigenere_caesar_decrypt(text, vigenere_key, caesar_key):
     the plaintext of <text> decrypted with improved Vigenere under keys <key_vigenere> and <key_caesar>
     """
     # TODO
-    return ""
+    text = normalizeText(text)
+    vig_key = normalizeText(vigenere_key)
+    shift = 0
+    plain_text = ""
+    ascii_ref = ord('A')
+    ALPHA_SIZE = 26
+
+    for i in range(len(text)):
+        plain_text += chr((ord(text[i]) - ord(vig_key[i % len(vig_key)]) - shift) % ALPHA_SIZE + ascii_ref)
+        if not i % len(vigenere_key):
+            shift += caesar_key
+
+    return plain_text
 
 
 def vigenere_caesar_break(text, ref_freq, ref_ci):
@@ -374,6 +395,11 @@ def main():
 
     print("Longueur de clef trouvé : " + str(key_length))
 
+    key = vigenere_break(ciphered_text, ref_freq, ref_ci)
+    print("Found key : " + key)
+
+    cip = vigenere_caesar_encrypt("Hello world", "maison", 2)
+    print(vigenere_caesar_decrypt(cip,"maison",2))
 if __name__ == "__main__":
     main()
 
