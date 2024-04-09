@@ -1,5 +1,9 @@
+import concurrent
+from concurrent.futures import ProcessPoolExecutor
+
 import unidecode
 import re
+from statistics import mean
 
 # IMPORTANT
 # IL EST PRIMORDIAL DE NE PAS CHANGER LA SIGNATURE DES FONCTIONS
@@ -82,7 +86,7 @@ def freq_analysis(text):
         freq_vector
     filtered_text = normalizeText(text)
     ascii_ref = ord('A')
-    total = 0 ciphered_text += chr((ord(text[i]) + ord(vig_key[i % len(vig_key)]) + shift) % ALPHA_SIZE + ascii_ref)
+    total = 0
     for letter in filtered_text:
         if letter.isalpha():
             freq_vector[ord(letter) - ascii_ref] += 1
@@ -248,21 +252,14 @@ def find_key_length(text, max_key_length, ref_ic):
     La longueur de clé estimée.
     """
     text = normalizeText(text)
-    estimated_key_length = 0
-    closest_ic_diff = float('inf')
 
-    for key_length in range(1, max_key_length + 1):
+    # Calculating the average IC for each key length and the difference from the reference IC
+    final_ics = [abs(mean([coincidence_index(text[j::i]) for j in range(i)]) - ref_ic)
+                 for i in range(1, min(max_key_length + 1, len(text) + 1))]
 
-        subtext = text[::key_length]
-        ic = coincidence_index(subtext)
-
-        ic_diff = abs(ic - ref_ic)
-
-        if ic_diff < closest_ic_diff:
-            closest_ic_diff = ic_diff
-            estimated_key_length = key_length
-
-    return estimated_key_length
+    key_length = final_ics.index(min(final_ics)) + 1
+    print("key length :" + str(key_length))
+    return key_length
 
 def vigenere_break(text, ref_freq, ref_ci):
     """
@@ -280,7 +277,6 @@ def vigenere_break(text, ref_freq, ref_ci):
     text = normalizeText(text)
     key_length = find_key_length(text, 20, ref_ci)
     key = ""
-    print(key_length)
     ascii_ref = ord('A')
     for i in range(key_length):
         shift = caesar_break(text[i::key_length], ref_freq)
@@ -301,16 +297,20 @@ def vigenere_caesar_encrypt(text, vigenere_key, caesar_key):
     """
     # TODO
     text = normalizeText(text)
-    vig_key = normalizeText(vigenere_key)
-    shift = 0
-    ciphered_text = ""
+    vigenere_key = normalizeText(vigenere_key)
     ascii_ref = ord('A')
     ALPHA_SIZE = 26
+    shift = 0
+    ciphered_text = ""
 
-    for i in range(len(text)):
-        ciphered_text += chr((ord(text[i]) + ord(vig_key[i % len(vig_key)]) + shift) % ALPHA_SIZE + ascii_ref)
-        if not i % len(vigenere_key):
-            shift += caesar_key
+    for i, char in enumerate(text):
+        if char.isalpha():
+            vig_key_index = i % len(vigenere_key)  # Adjust the index for the shift
+            vig_char = ord(vigenere_key[vig_key_index]) - ascii_ref
+            char_shift = (ord(char) - ascii_ref + vig_char + shift) % ALPHA_SIZE
+            ciphered_text += chr(char_shift + ascii_ref)
+            if (i + 1) % len(vigenere_key) == 0:
+                shift = (shift + caesar_key) % ALPHA_SIZE
 
     return ciphered_text
 
@@ -329,20 +329,27 @@ def vigenere_caesar_decrypt(text, vigenere_key, caesar_key):
     """
     # TODO
     text = normalizeText(text)
-    vig_key = normalizeText(vigenere_key)
-    shift = 0
-    plain_text = ""
+    vigenere_key = normalizeText(vigenere_key)
     ascii_ref = ord('A')
     ALPHA_SIZE = 26
-
-    for i in range(len(text)):
-        plain_text += chr((ord(text[i]) - ord(vig_key[i % len(vig_key)]) - shift) % ALPHA_SIZE + ascii_ref)
-        if not i % len(vigenere_key):
-            shift += caesar_key
-
+    shift = 0
+    plain_text = ""
+    for i, char in enumerate(text):
+        if char.isalpha():
+            vig_key_index = i % len(vigenere_key)  # Adjust the index for the shift
+            vig_char = ord(vigenere_key[vig_key_index]) - ascii_ref
+            char_shift = (ord(char) - ascii_ref - vig_char - shift + ALPHA_SIZE) % ALPHA_SIZE
+            plain_text += chr(char_shift + ascii_ref)
+            if (i + 1) % len(vigenere_key) == 0:
+                shift = (shift + caesar_key) % ALPHA_SIZE
     return plain_text
 
-
+def mean_ic(text, key_length):
+    ics = []
+    for i in range(key_length):
+        block = text[i::key_length]
+        ics.append(coincidence_index(block))
+    return mean(ics)
 def vigenere_caesar_break(text, ref_freq, ref_ci):
     """
     Parameters
@@ -358,10 +365,34 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
         the number corresponding to the caesar key used to obtain the ciphertext
     """
     # TODO you can delete the next lines if needed
-    vigenere_key = ""
-    caesar_key = ''
-    return (vigenere_key, caesar_key)
 
+    max_key_size = 20
+    ALPHA_SIZE = 26
+    min_ic_text = "CaesarDecrypted"
+    min_ic_value = float("inf")
+    min_ic_caesar_key = 0
+
+    for i in range(1, max_key_size + 1):
+        for j in range(ALPHA_SIZE):
+            final_text = ''.join(
+                [caesar_decrypt(text[chunk_start_index:chunk_start_index + i], ((j * (chunk_start_index // i)) % ALPHA_SIZE)) for chunk_start_index in range(0, len(text), i)])
+
+            ics = []
+            for index in range(i):
+                block = final_text[index::i]
+                ics.append(coincidence_index(block))
+
+            ic = abs(mean(ics) - ref_ci)
+
+            if ic < min_ic_value:
+                min_ic_text = final_text
+                min_ic_value = ic
+                min_ic_caesar_key = j
+
+    key_caesar = min_ic_caesar_key
+    key_vigenere = vigenere_break(min_ic_text, ref_freq, ref_ci)
+
+    return key_vigenere, key_caesar
 
 
 def main():
@@ -392,14 +423,32 @@ def main():
         ciphered_text = file.read()
 
     key_length = find_key_length(ciphered_text, 20, ref_ci)
-
-    print("Longueur de clef trouvé : " + str(key_length))
-
+    print("Found key length : " + str(key_length))
     key = vigenere_break(ciphered_text, ref_freq, ref_ci)
-    print("Found key : " + key)
+    print(vigenere_decrypt(ciphered_text,key))
+    print("----------------------------------------")
+    cip = vigenere_encrypt("Vigenere simple en cryptographie décide d’améliorer le chiffre de Vigenère. Son raisonnement est le suivant : le problème avec le chiffre de Vigenère est la réutilisation de la clef. Il décide donc, après chaque utilisation de la clef de la changer en la chiffrant avec le chiffre de César généralisé. Par exemple,si la clef initiale est la clef MAISON et la clef du chiffre de César est 2, les six premières lettres du texte clair sont chiffrées avec MAISON, les suivantes avec OCKUQP, puis QEMWSR","monster")
+    key = vigenere_break(cip,ref_freq,ref_ci)
+    print("Vigenere simple key :" + key)
+    print(vigenere_decrypt(cip, key))
+    print("----------------------------------------")
+    cip = vigenere_caesar_encrypt("Vigenere caesar  en cryptographie décide d’améliorer le chiffre de Vigenère. Son raisonnement est le suivant : le problème avec le chiffre de Vigenère est la réutilisation de la clef. Il décide donc, après chaque utilisation de la clef de la changer en la chiffrant avec le chiffre de César généralisé. Par exemple,si la clef initiale est la clef MAISON et la clef du chiffre de César est 2, les six premières lettres du texte clair sont chiffrées avec MAISON, les suivantes avec OCKUQP, puis QEMWSR","monster",3)
+    vigenere_key, caesar_key = vigenere_caesar_break(cip, ref_freq, ref_ci)
+    print(f"Found Vigenere key: {vigenere_key}")
+    print(f"Found Caesar key: {caesar_key}")
+    decrypted_text = vigenere_caesar_decrypt(cip, vigenere_key, caesar_key)
+    print(f"Decrypted text: {decrypted_text}")
 
-    cip = vigenere_caesar_encrypt("Hello world", "maison", 2)
-    print(vigenere_caesar_decrypt(cip,"maison",2))
+    print("----------------------------------------")
+    with open('vigenereAmeliore.txt',  'r', encoding='utf-8') as file:
+        ciphered_text = file.read()
+
+    vigenere_key, caesar_key = vigenere_caesar_break(ciphered_text, ref_freq, ref_ci)
+    print(f"Found Vigenere key: {vigenere_key}")
+    print(f"Found Caesar key: {caesar_key}")
+
+    decrypted_text = vigenere_caesar_decrypt(ciphered_text, vigenere_key, caesar_key)
+    print(f"Decrypted text: {decrypted_text}")
 if __name__ == "__main__":
     main()
 
