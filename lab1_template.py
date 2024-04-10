@@ -237,29 +237,19 @@ def coincidence_index(text):
 
     return  (len(letter_counts) * sum(ni * (ni - 1) for ni in letter_counts)) / (N * (N - 1))
 def find_key_length(text, max_key_length, ref_ic):
-    """
-    Estime la longueur de la clé en examinant l'indice de coïncidence pour les sous-textes créés
-    en prenant les lettres à des intervalles équivalant à la longueur de la clé potentielle.
-
-    Parameters
-    ----------
-    text: le texte chiffré à analyser
-    max_key_length: la longueur maximale de la clé à tester
-    french_ic: l'indice de coïncidence d'un texte français standard pour comparaison
-
-    Returns
-    -------
-    La longueur de clé estimée.
-    """
     text = normalizeText(text)
+    ALPHA_SIZE = 26
+    min_ic = float("inf")
+    supposed_length = 0
 
-    # Calculating the average IC for each key length and the difference from the reference IC
-    final_ics = [abs(mean([coincidence_index(text[j::i]) for j in range(i)]) - ref_ic)
-                 for i in range(1, min(max_key_length + 1, len(text) + 1))]
-
-    key_length = final_ics.index(min(final_ics)) + 1
-    print("key length :" + str(key_length))
-    return key_length
+    for i in range(1, max_key_length + 1):
+        ic = coincidence_index(text[::i])
+        is_closer = (min_ic < ic and ic < ref_ic) or (min_ic < ic and ic < ref_ic)
+        is_first = (supposed_length == 0)
+        if (is_first or is_closer):
+            supposed_length = i
+            min_ic = ic
+    return supposed_length
 
 def vigenere_break(text, ref_freq, ref_ci):
     """
@@ -362,9 +352,9 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
     max_key_size = 20
     ALPHA_SIZE = 26
     min_ic_text = ""
-    min_ic_value = float("inf")
+    min_ic = float("inf")
     min_ic_caesar_key = 0
-
+    key_length = 0
     for i in range(1, max_key_size + 1):
         for j in range(ALPHA_SIZE):
             final_text = ''.join(
@@ -376,12 +366,20 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
                 block = final_text[index::i]
                 ics.append(coincidence_index(block))
 
-            ic = abs(mean(ics) - ref_ci)
+            ic_mean = abs(mean(ics))
+            is_closer = (abs(min_ic - ref_ci)) > (abs(ic_mean - ref_ci))
+            is_first = (key_length == 0)
 
-            if ic < min_ic_value:
+            if is_first or is_closer:
+                print("------------")
+                print(f"Mean IC {ic_mean}")
+                print(f"Min IC {min_ic}")
+                print(f"Ic ref {ref_ci}")
                 min_ic_text = final_text
-                min_ic_value = ic
+                min_ic = ic_mean
                 min_ic_caesar_key = j
+                key_length = i
+
 
     key_caesar = min_ic_caesar_key
     key_vigenere = vigenere_break(min_ic_text, ref_freq, ref_ci)
@@ -392,58 +390,63 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
 def main():
     print("Welcome to the Vigenere breaking tool")
 
-    # Read the example French text and calculate the reference frequencies
+    # Load reference data
     with open('text_fr.txt', 'r', encoding='utf-8') as file:
-        example_french_data = file.read()
-    ref_freq = freq_analysis(example_french_data)
-    ref_ci = coincidence_index(example_french_data)
-    print(ref_freq)
-    print(ref_ci)
-    # Create a ciphered text using the caesar_encrypt function
-    text = "The quick brown fox jumps over the lazy dog"
-    key = 3
-    ciphered_text = caesar_encrypt(text, key)
-    print(f"Ciphered text: {ciphered_text}")
+        french_text = file.read()
+    reference_frequencies = freq_analysis(french_text)
+    reference_coincidence_index = coincidence_index(french_text)
+    print(reference_frequencies)
+    print(reference_coincidence_index)
 
-    # Use caesar_break to find the key
-    found_key = caesar_break(ciphered_text, ref_freq)
-    print(f"Found key: {found_key}")
+    # Test Caesar cipher
+    print("\nTesting Caesar cipher...")
+    plaintext = "The quick brown fox jumps over the lazy dog"
+    caesar_key = 3
+    caesar_ciphered_text = caesar_encrypt(plaintext, caesar_key)
+    print(f"Ciphered text: {caesar_ciphered_text}")
+    found_caesar_key = caesar_break(caesar_ciphered_text, reference_frequencies)
+    print(f"Found key: {found_caesar_key}")
+    caesar_decrypted_text = caesar_decrypt(caesar_ciphered_text, found_caesar_key)
+    print(f"Decrypted text: {caesar_decrypted_text}")
 
-    # Decrypt the ciphered text using the found key
-    decrypted_text = caesar_decrypt(ciphered_text, found_key)
-    print(f"Decrypted text: {decrypted_text}")
-    # Read the ciphered text
+    # Test Vigenere cipher
+    print("\nTesting Vigenere cipher...")
     with open('vigenere.txt',  'r', encoding='utf-8') as file:
-        ciphered_text = file.read()
+        vigenere_ciphered_text = file.read()
+    vigenere_key = vigenere_break(vigenere_ciphered_text, reference_frequencies, reference_coincidence_index)
+    print(f"Found key : {vigenere_key}")
+    vigenere_decrypted_text = vigenere_decrypt(vigenere_ciphered_text, vigenere_key)
+    print(vigenere_decrypted_text)
+    print("\n Testing an other vigenere")
+    vigenere_plaintext = "Vigenere caesar  en cryptographie décide d’améliorer le chiffre de Vigenère. Son raisonnement est le suivant : le problème avec le chiffre de Vigenère est la réutilisation de la clef. Il décide donc, après chaque utilisation de la clef de la changer en la chiffrant avec le chiffre de César généralisé. Par exemple,si la clef initiale est la clef MAISON et la clef du chiffre de César est 2, les six premières lettres du texte clair sont chiffrées avec MAISON, les suivantes avec OCKUQP, puis QEMWSR"
+    ciphered = vigenere_encrypt(vigenere_plaintext, "ansbas")
+    key = vigenere_break(ciphered,reference_frequencies, reference_coincidence_index)
+    print(vigenere_decrypt(ciphered, key))
+    print(f"Found key Vigenere : {key}")
 
-    key_length = find_key_length(ciphered_text, 20, ref_ci)
-    print("Found key length : " + str(key_length))
-    key = vigenere_break(ciphered_text, ref_freq, ref_ci)
-    print(vigenere_decrypt(ciphered_text,key))
-    print("----------------------------------------")
-    cip = vigenere_encrypt("Vigenere simple en cryptographie décide d’améliorer le chiffre de Vigenère. Son raisonnement est le suivant : le problème avec le chiffre de Vigenère est la réutilisation de la clef. Il décide donc, après chaque utilisation de la clef de la changer en la chiffrant avec le chiffre de César généralisé. Par exemple,si la clef initiale est la clef MAISON et la clef du chiffre de César est 2, les six premières lettres du texte clair sont chiffrées avec MAISON, les suivantes avec OCKUQP, puis QEMWSR","monster")
-    key = vigenere_break(cip,ref_freq,ref_ci)
-    print("Vigenere simple key :" + key)
-    print(vigenere_decrypt(cip, key))
-    print("----------------------------------------")
-    cip = vigenere_caesar_encrypt("Vigenere caesar  en cryptographie décide d’améliorer le chiffre de Vigenère. Son raisonnement est le suivant : le problème avec le chiffre de Vigenère est la réutilisation de la clef. Il décide donc, après chaque utilisation de la clef de la changer en la chiffrant avec le chiffre de César généralisé. Par exemple,si la clef initiale est la clef MAISON et la clef du chiffre de César est 2, les six premières lettres du texte clair sont chiffrées avec MAISON, les suivantes avec OCKUQP, puis QEMWSR","monster",3)
-    vigenere_key, caesar_key = vigenere_caesar_break(cip, ref_freq, ref_ci)
-    print(f"Found Vigenere key: {vigenere_key}")
-    print(f"Found Caesar key: {caesar_key}")
-    decrypted_text = vigenere_caesar_decrypt(cip, vigenere_key, caesar_key)
-    print(f"Decrypted text: {decrypted_text}")
+    # Test Vigenere Caesar cipher
+    print("\nTesting Vigenere Caesar cipher...")
+    vigenere_caesar_plaintext = "Vigenere caesar  en cryptographie décide d’améliorer le chiffre de Vigenère. Son raisonnement est le suivant : le problème avec le chiffre de Vigenère est la réutilisation de la clef. Il décide donc, après chaque utilisation de la clef de la changer en la chiffrant avec le chiffre de César généralisé. Par exemple,si la clef initiale est la clef MAISON et la clef du chiffre de César est 2, les six premières lettres du texte clair sont chiffrées avec MAISON, les suivantes avec OCKUQP, puis QEMWSR"
+    vigenere_caesar_key = "salut"
+    caesar_key = 3
+    vigenere_caesar_ciphered_text = vigenere_caesar_encrypt(vigenere_caesar_plaintext, vigenere_caesar_key, caesar_key)
+    print(f"Ciphered text: {vigenere_caesar_ciphered_text}")
+    found_vigenere_key, found_caesar_key = vigenere_caesar_break(vigenere_caesar_ciphered_text, reference_frequencies, reference_coincidence_index)
+    print(f"Found Vigenere key: {found_vigenere_key}")
+    print(f"Found Caesar key: {found_caesar_key}")
+    vigenere_caesar_decrypted_text = vigenere_caesar_decrypt(vigenere_caesar_ciphered_text, found_vigenere_key, found_caesar_key)
+    print(f"Decrypted text: {vigenere_caesar_decrypted_text}")
 
-    print("----------------------------------------")
+    # Test Vigenere Caesar cipher with external file
+    print("\nTesting Vigenere Caesar cipher with external file...")
     with open('vigenereAmeliore.txt',  'r', encoding='utf-8') as file:
-        ciphered_text = file.read()
+        external_vigenere_caesar_ciphered_text = file.read()
+    found_vigenere_key, found_caesar_key = vigenere_caesar_break(external_vigenere_caesar_ciphered_text, reference_frequencies, reference_coincidence_index)
+    print(f"Found Vigenere key: {found_vigenere_key}")
+    print(f"Found Caesar key: {found_caesar_key}")
+    external_vigenere_caesar_decrypted_text = vigenere_caesar_decrypt(external_vigenere_caesar_ciphered_text, found_vigenere_key, found_caesar_key)
+    print(f"Decrypted text: {external_vigenere_caesar_decrypted_text}")
 
-    vigenere_key, caesar_key = vigenere_caesar_break(ciphered_text, ref_freq, ref_ci)
-    print(f"Found Vigenere key: {vigenere_key}")
-    print(f"Found Caesar key: {caesar_key}")
-
-    decrypted_text = vigenere_caesar_decrypt(ciphered_text, vigenere_key, caesar_key)
-    print(f"Decrypted text: {decrypted_text}")
 if __name__ == "__main__":
     main()
-
 
