@@ -25,7 +25,6 @@ def caesar_encrypt(text, key):
     -------
     the ciphertext of <text> encrypted with Caesar under key <key>
     """
-    # TODO
 
     filtered_text = normalizeText(text)
     ciphered_text = ""
@@ -149,7 +148,6 @@ def caesar_break(text, ref_freq):
     -------
     a number corresponding to the caesar key
     """
-    # TODO
     if not all(value != 0.0 for value in ref_freq):
         raise ValueError("Text and reference frequencies cannot be empty")
 
@@ -172,8 +170,6 @@ def vigenere_encrypt(text, key):
     -------
     the ciphertext of <text> encrypted with Vigenere under key <key>
     """
-    # TODO
-
     text = normalizeText(text)
     key = normalizeText(key)
 
@@ -203,7 +199,6 @@ def vigenere_decrypt(text, key):
     -------
     the plaintext of <text> decrypted with Vigenere under key <key>
     """
-    # TODO
 
     text = normalizeText(text)
     key = normalizeText(key)
@@ -233,7 +228,6 @@ def coincidence_index(text):
     -------
     the index of coincidence of the text
     """
-    # TODO
     text = normalizeText(text)
 
     if len(text) < 2:
@@ -271,7 +265,6 @@ def vigenere_break(text, ref_freq, ref_ci):
     -------
     the keyword corresponding to the encryption key used to obtain the ciphertext
     """
-    # TODO
     text = normalizeText(text)
     key_length = find_key_length(text, 20, ref_ci)
     key = ""
@@ -294,7 +287,6 @@ def vigenere_caesar_encrypt(text, vigenere_key, caesar_key):
     -------
     the ciphertext of <text> encrypted with improved Vigenere under keys <key_vigenere> and <key_caesar>
     """
-    # TODO
     text = normalizeText(text)
     vigenere_key = normalizeText(vigenere_key)
     ascii_ref = ord('A')
@@ -326,7 +318,6 @@ def vigenere_caesar_decrypt(text, vigenere_key, caesar_key):
     -------
     the plaintext of <text> decrypted with improved Vigenere under keys <key_vigenere> and <key_caesar>
     """
-    # TODO
     text = normalizeText(text)
     vigenere_key = normalizeText(vigenere_key)
     ascii_ref = ord('A')
@@ -358,8 +349,6 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
         the keyword corresponding to the vigenere key used to obtain the ciphertext
         the number corresponding to the caesar key used to obtain the ciphertext
     """
-    # TODO you can delete the next lines if needed
-
     max_key_size = 20
     ALPHA_SIZE = 26
     closest_text = ""
