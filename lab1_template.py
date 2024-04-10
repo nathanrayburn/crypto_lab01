@@ -362,37 +362,64 @@ def vigenere_caesar_break(text, ref_freq, ref_ci):
 
     max_key_size = 20
     ALPHA_SIZE = 26
-    min_ic_text = ""
+    closest_text = ""
     min_ic = float("inf")
-    min_ic_caesar_key = 0
+    caesar_key = 0
     key_length = 0
-    for i in range(1, max_key_size + 1):
-        for j in range(ALPHA_SIZE):
-            final_text = ''.join(
-                [caesar_decrypt(text[chunk_start_index:chunk_start_index + i],
-                                ((j * (chunk_start_index // i)) % ALPHA_SIZE))
-                 for chunk_start_index in range(0, len(text), i)])
+    for length in range(1, max_key_size + 1):
+        for shift in range(ALPHA_SIZE):
+            final_text = ""
+            for chunk_start_index in range(0, len(text), length):
+                chunk = text[chunk_start_index:chunk_start_index + length]
+                shift_key = (shift * (chunk_start_index // length)) % ALPHA_SIZE
+                shifted_chunk = caesar_decrypt(chunk, shift_key)
+                final_text += shifted_chunk
 
             ics = []
-            for index in range(i):
-                block = final_text[index::i]
-                ics.append(coincidence_index(block))
+            for index in range(length):
+                chunk = final_text[index::length]
+                ics.append(coincidence_index(chunk))
 
             ic_mean = abs(mean(ics))
             is_closer = (abs(min_ic - ref_ci)) > (abs(ic_mean - ref_ci))
             is_first = (key_length == 0)
             if is_first or is_closer:
-                min_ic_text = final_text
+                closest_text = final_text
                 min_ic = ic_mean
-                min_ic_caesar_key = j
-                key_length = i
+                caesar_key = shift
+                key_length = length
 
     print(f"Min IC {min_ic}")
     print(f"Ic ref {ref_ci}")
-    key_caesar = min_ic_caesar_key
-    key_vigenere = vigenere_break(min_ic_text, ref_freq, ref_ci)
+    key_vigenere = ""
+    ascii_ref = ord('A')
+    for i in range(key_length):
+        shift = caesar_break(closest_text[i::key_length], ref_freq)
+        key_vigenere += chr(shift % 26 + ascii_ref)
 
-    return key_vigenere, key_caesar
+    return key_vigenere, caesar_key
+
+
+def detect_language(text):
+    """Detect if the text is closer to English or French based on chi-squared statistic."""
+    # Normalize the text to lowercase to simplify analysis.
+    text = normalizeText(text)
+    observed_freqs = freq_analysis(text)
+    with open("text_fr.txt", 'r', encoding='utf-8') as file:
+        french_text = file.read()
+    with open("text_en.txt", 'r', encoding='utf-8') as file:
+        english_text = file.read()
+
+    english_profile = freq_analysis(english_text)
+    french_profile = freq_analysis(french_text)
+
+    chi_squared_english = calculate_chi_squared(observed_freqs, english_profile)
+    chi_squared_french = calculate_chi_squared(observed_freqs, french_profile)
+
+    if chi_squared_english < chi_squared_french:
+        print('English')
+    else:
+        print('French')
 def display_reference_frequencies(reference_frequencies):
     for i, freq in enumerate(reference_frequencies):
         letter = chr(i + ord('A'))
@@ -439,6 +466,16 @@ def main():
     print(f"Found key Vigenere : {key}")
     print(f"Decrypted text: {vigenere_decrypt(ciphered, key)}")
 
+    # Test Vigenere Caesar cipher
+    print("\nTesting Vigenere Caesar cipher...")
+
+    ciphered = vigenere_caesar_encrypt(vigenere_plaintext,"monster", 7)
+    found_vigenere_key, found_caesar_key = vigenere_caesar_break(ciphered,reference_frequencies,reference_coincidence_index)
+    print(f"Ciphered text : {ciphered}")
+    print(f"Found Vigenere key: {found_vigenere_key}")
+    print(f"Found Caesar key: {found_caesar_key}")
+    print(f"Decrypted text : {vigenere_caesar_decrypt(ciphered,found_vigenere_key,found_caesar_key)}")
+
     # Test Vigenere Caesar cipher with external file
     print("\nTesting Vigenere Caesar cipher with external file...")
     with open('vigenereAmeliore.txt', 'r', encoding='utf-8') as file:
@@ -451,6 +488,10 @@ def main():
                                                                       found_vigenere_key, found_caesar_key)
     print(f"Decrypted text: {external_vigenere_caesar_decrypted_text}")
 
+    # is text english or french
+
+    detect_language("Ce text est enorme")
+    detect_language("This text is huge")
 
 if __name__ == "__main__":
     main()
